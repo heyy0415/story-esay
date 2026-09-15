@@ -39,9 +39,3 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# Tencent Cloud EdgeOne
-.env
-.edgeone/*
-.tef_dist/*
-  
