@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState, StorySetup, TurnMeta } from "./schema";
 import { requestSetup, requestIllustration } from "./client";
+import { warmImage } from "./image-warm";
 import { MAX_TURNS } from "./prompts";
 import {
   generateBranch,
@@ -20,6 +21,17 @@ const STORAGE_KEY = "ai-story-save-v1";
 
 /** 预取摘要的最小更新间隔。三个分支并发流式每秒产生数十次回调，不节流会打满主线程 */
 const SUMMARY_THROTTLE_MS = 300;
+
+/**
+ * 开局各阶段的进度权重（累计百分比）。
+ * 按实测耗时分配：文字生成约 20s、插图 prompt 约 8s、出图约 45s。
+ */
+const SETUP_PROGRESS = {
+  start: 5,
+  storyReady: 30,
+  promptReady: 40,
+  imageWarmed: 100,
+} as const;
 
 /**
  * idle 未开始 / creating 开局生成中 / playing 可交互（预取可能在后台进行）
@@ -43,6 +55,10 @@ interface GameUI {
   awaitingChars: number;
   /** 预取状态摘要（派生自 treeRef，仅供 UI 参考） */
   prefetch: PrefetchSummary;
+  /** 开局进度百分比（creating 阶段有效） */
+  setupProgress: number;
+  /** 开局当前阶段的文案 */
+  setupStage: string;
 }
 
 const INITIAL_UI: GameUI = {
@@ -56,6 +72,8 @@ const INITIAL_UI: GameUI = {
   illustratingIndex: null,
   awaitingChars: 0,
   prefetch: {},
+  setupProgress: 0,
+  setupStage: "",
 };
 
 /** 存档只保留稳定的游戏进度，预取缓存与瞬时 UI 状态不落盘 */
@@ -220,11 +238,27 @@ export function useGame() {
     [commitBranch],
   );
 
+  /**
+   * 开始新故事。开局刻意做成"全部就绪才进入"：先生成世界设定与开场，
+   * 再预热开场插图，使玩家进入时图文同时秒开。
+   *
+   * 分支插图不在此预热——文生图服务有共享上游限流，实测并发 4 路仅 1 路成功，
+   * 串行 4 张需约 170 秒，超出可接受的开局等待。分支图改为进入后惰加载。
+   */
   const startGame = useCallback(
     async (idea: string) => {
-      setUi({ ...INITIAL_UI, phase: "creating" });
+      const controller = new AbortController();
+      actAbortRef.current = controller;
+
+      const report = (setupProgress: number, setupStage: string) =>
+        setUi((u) => (u.phase === "creating" ? { ...u, setupProgress, setupStage } : u));
+
+      setUi({ ...INITIAL_UI, phase: "creating", setupProgress: SETUP_PROGRESS.start, setupStage: "构思世界设定…" });
+
       try {
         const setup: StorySetup = await requestSetup(idea);
+        if (controller.signal.aborted) return;
+
         const state: GameState = {
           setup,
           stats: { ...setup.stats },
@@ -233,14 +267,33 @@ export function useGame() {
           turnCount: 0,
           openingImageUrl: null,
         };
-        setUi({ ...INITIAL_UI, phase: "playing", state, choices: setup.choices, illustratingIndex: -1 });
+        report(SETUP_PROGRESS.storyReady, `《${setup.title}》已就绪，正在绘制开场…`);
 
-        // 先启动预取再等开局插图：插图要数十秒，不能让它挡住预取
+        // 立刻启动文字预取，与插图预热并行——文字不受图片限流影响
         schedulePrefetch(state, setup.choices);
 
-        const imageUrl = await requestIllustration(setup.genre, setup.opening);
-        setUi((u) => (u.state ? { ...u, state: { ...u.state, openingImageUrl: imageUrl }, illustratingIndex: null } : u));
+        const imageUrl = await requestIllustration(setup.genre, setup.opening, controller.signal);
+        if (controller.signal.aborted) return;
+        report(SETUP_PROGRESS.promptReady, "画面生成中，这一步最久…");
+
+        // 预热成功后 <img> 即为秒开；失败也照常进入，届时退化为骨架屏
+        if (imageUrl) {
+          await warmImage(imageUrl, controller.signal, (attempt) => {
+            report(SETUP_PROGRESS.promptReady, attempt > 1 ? `画面生成中（重试 ${attempt}/3）…` : "画面生成中，这一步最久…");
+          });
+        }
+        if (controller.signal.aborted) return;
+
+        report(SETUP_PROGRESS.imageWarmed, "准备就绪");
+        setUi((u) => ({
+          ...u,
+          phase: "playing",
+          state: { ...state, openingImageUrl: imageUrl },
+          choices: setup.choices,
+          illustratingIndex: null,
+        }));
       } catch (e) {
+        if (controller.signal.aborted) return;
         setUi({ ...INITIAL_UI, error: e instanceof Error ? e.message : "创建失败" });
       }
     },

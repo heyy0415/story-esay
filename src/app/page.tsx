@@ -11,7 +11,13 @@ export default function Home() {
   if (!game.state || game.phase === "idle" || game.phase === "creating") {
     return (
       <main className="flex min-h-screen items-center">
-        <IdeaForm onStart={game.startGame} loading={game.phase === "creating"} error={game.error} />
+        <IdeaForm
+          onStart={game.startGame}
+          loading={game.phase === "creating"}
+          error={game.error}
+          progress={game.setupProgress}
+          stage={game.setupStage}
+        />
       </main>
     );
   }

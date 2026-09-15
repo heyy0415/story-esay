@@ -1,5 +1,6 @@
 import type { GameState, TurnMeta } from "./schema";
 import { requestTurn, requestIllustration } from "./client";
+import { warmImage } from "./image-warm";
 
 /**
  * 预取模式。额度紧张时改为 "first"（只预取首个选项）或 "off"（关闭）即可一键降级，
@@ -170,7 +171,12 @@ export function startPrefetch(
         entry.charCount = narrative.length;
         onUpdate(tree);
       },
-      onImage: () => onUpdate(tree),
+      onImage: (imageUrl) => {
+        onUpdate(tree);
+        // 玩家阅读期间在后台串行预热分支插图，使真正选中时更可能秒开。
+        // 队列已做串行化，此处并发调用不会压垮上游限流。
+        if (imageUrl) void warmImage(imageUrl, controller.signal);
+      },
     })
       .then((result) => {
         entry.status = "ready";

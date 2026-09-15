@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const EXAMPLES = [
   "魔教余孽潜入正派扫地，悟出绝学后揭穿正邪之分不过是掩盖血案的谎言。",
@@ -13,12 +13,82 @@ interface Props {
   onStart: (idea: string) => void;
   loading: boolean;
   error: string | null;
+  /** 构建进度百分比（loading 时有效） */
+  progress: number;
+  /** 当前阶段文案 */
+  stage: string;
+}
+
+/**
+ * 让进度在真实节点之间缓慢爬升。
+ *
+ * 出图阶段是一次约 45 秒的等待，期间没有任何可上报的中间事件，
+ * 进度条若静止不动会被误认为卡死。这里在真实进度之上叠加缓慢爬升，
+ * 并在接近下一节点前收敛，既避免假死观感也不会超过真实进度太多。
+ */
+function useCreepingProgress(target: number): number {
+  /** 自上一个真实节点以来累计爬升的量 */
+  const [creep, setCreep] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // 最多爬 18%，留出真实事件的落点
+      setCreep((c) => Math.min(c + 1, 18));
+    }, 1400);
+
+    // target 变化时清零，让新的真实进度直接接管
+    return () => {
+      clearInterval(timer);
+      setCreep(0);
+    };
+  }, [target]);
+
+  return Math.min(target + creep, target >= 100 ? 100 : 99);
+}
+
+/**
+ * 构建世界的进度视图。开局刻意等到图文全部就绪才进入游戏，
+ * 所以这段等待较长（约一分钟），必须给出真实进度而非无限转圈。
+ */
+function BuildingProgress({ progress, stage }: { progress: number; stage: string }) {
+  const display = useCreepingProgress(progress);
+
+  return (
+    <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-8 px-6 py-16">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-zinc-100">正在构建世界</h2>
+        <p className="mt-3 text-zinc-400">{stage}</p>
+      </div>
+
+      <div className="w-full">
+        <div className="mb-2 flex items-baseline justify-between">
+          <span className="text-sm text-zinc-500">进度</span>
+          <span className="text-2xl font-semibold tabular-nums text-amber-300">{display}%</span>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-400 transition-all duration-500"
+            style={{ width: `${display}%` }}
+          />
+        </div>
+      </div>
+
+      <p className="text-center text-sm leading-relaxed text-zinc-600">
+        首次构建需要生成世界设定、开场剧情与场景插图，
+        <br />
+        完成后进入游戏即可图文秒开。
+      </p>
+    </div>
+  );
 }
 
 /** 首页：输入一句话创意，生成故事 */
-export function IdeaForm({ onStart, loading, error }: Props) {
+export function IdeaForm({ onStart, loading, error, progress, stage }: Props) {
   const [idea, setIdea] = useState("");
   const canSubmit = idea.trim().length >= 2 && !loading;
+
+  // 构建中占满视图，避免玩家在等待期反复点击
+  if (loading) return <BuildingProgress progress={progress} stage={stage} />;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-8 px-6 py-16">
