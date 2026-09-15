@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/@edgeone/types/edgeone.schema.json",
+  "name": "story-easy",
+  "installCommand": "pnpm install",
+  "buildCommand": "pnpm build",
+  "outputDirectory": ".next",
+  "nodeVersion": "20",
+  "cloudFunctions": {
+    "maxDuration": 120
+  }
+}
