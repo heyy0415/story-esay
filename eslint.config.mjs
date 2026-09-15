@@ -12,8 +12,6 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
-    // OpenNext 的 Cloudflare 构建产物，非源码
-    ".open-next/**",
   ]),
 ]);
 

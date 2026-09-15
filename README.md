@@ -2,9 +2,11 @@
 
 输入一句话创意，AI 生成一个可玩的文字互动故事：世界设定、角色属性、分支剧情与写实场景插图全部由模型实时生成，每个选择都会改变结局。
 
+**在线体验：https://story-esay.vercel.app/**
+
 ## 使用说明
 
-本站不提供模型额度。首次点击「开始冒险」时会引导填写配置，也可随时点右上角按钮修改：
+本站不提供模型额度，需自带 API Key（BYOK）。首次点击「开始冒险」时会引导填写配置，也可随时点右上角按钮修改：
 
 | 字段 | 必填 | 说明 |
 |---|---|---|
@@ -14,7 +16,9 @@
 
 配置保存在浏览器 localStorage，随每次请求发往 Route Handler 代理模型调用。**服务端不持有、不留存任何密钥**，因此部署时无需配置模型相关环境变量，公开演示也不会消耗站点方的额度。
 
-插图走免费的 Pollinations，不需要 key；
+插图走免费的 Pollinations，不需要 key。
+
+游玩流程：
 
 1. 输入一句话创意（例："魔教余孽潜入正派扫地，悟出绝学后揭穿正邪之分不过是掩盖血案的谎言"）
 2. 等待约 20-40 秒构建世界，期间显示真实进度百分比
@@ -65,24 +69,9 @@ pnpm dev
 
 ## 部署
 
-配置了 BYOK 后，部署无需任何环境变量。
+部署在 Vercel：https://story-esay.vercel.app/
 
-**Cloudflare Workers**（推荐，送永久 `*.workers.dev` 域名，有亚洲节点）：
-
-```bash
-pnpm run cf:deploy    # 构建 + 部署
-pnpm run cf:preview   # 在 Workers 运行时本地预览
-```
-
-注意用 `pnpm run`：`pnpm deploy` 会被 pnpm 的内置 monorepo 部署命令拦截，故另提供 `cf:` 前缀别名。
-
-首次部署后需在 Cloudflare 控制台注册 workers.dev 子域，否则域名无法访问（Workers & Pages → 首次进入时设置）。
-
-经 [OpenNext](https://opennext.js.org/cloudflare) 适配，`nodejs_compat` 标志下 Route Handler 与 OpenAI SDK 正常工作，SSE 流式已实测通过。注意 wrangler 要求 Node ≥ 22（项目本身 Node 20 即可）。
-
-未启用 ISR 缓存与 `next/image`，因此 [wrangler.jsonc](wrangler.jsonc) 省去了 R2 桶、自引用服务与 images 绑定——页面为静态或全动态，插图走第三方 URL 直出。
-
-**其他平台**：Vercel 导入即部署（`*.vercel.app` 永久域名）。EdgeOne Pages 配置见 [edgeone.json](edgeone.json)，但其默认域名仅提供 3 小时限时预览，长期可用需绑定已备案的自定义域名。
+由于采用 BYOK，**无需配置任何环境变量**，在 Vercel 导入本仓库即可。服务端无状态、不依赖数据库，免费版额度足够。
 
 ## 目录结构
 
