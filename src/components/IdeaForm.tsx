@@ -47,7 +47,13 @@ function useNodeCreep(target: number): number {
  * 构建世界的进度视图。开局刻意等到图文全部就绪才进入游戏，
  * 所以这段等待较长（约一分钟），必须给出真实进度而非无限转圈。
  */
-function BuildingProgress({ progress, stage }: { progress: number; stage: string }) {
+function BuildingProgress({
+  progress,
+  stage,
+}: {
+  progress: number;
+  stage: string;
+}) {
   const display = useNodeCreep(progress);
 
   return (
@@ -60,7 +66,9 @@ function BuildingProgress({ progress, stage }: { progress: number; stage: string
       <div className="w-full">
         <div className="mb-2 flex items-baseline justify-between">
           <span className="text-sm text-zinc-500">进度</span>
-          <span className="text-2xl font-semibold tabular-nums text-amber-300">{display}%</span>
+          <span className="text-2xl font-semibold tabular-nums text-amber-300">
+            {display}%
+          </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-zinc-800">
           <div
@@ -91,7 +99,7 @@ export function IdeaForm({ onStart, loading, error, progress, stage }: Props) {
     <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-8 px-6 py-16">
       <div className="text-center">
         <h1 className="bg-gradient-to-r from-amber-200 via-orange-300 to-rose-300 bg-clip-text text-5xl font-bold tracking-tight text-transparent">
-          千面故事
+          StoryEasy
         </h1>
         <p className="mt-4 text-lg text-zinc-400">
           一句话，AI 为你生成一个可玩的互动故事。每个选择都会改变结局。
