@@ -70,9 +70,13 @@ pnpm dev
 **Cloudflare Workers**（推荐，送永久 `*.workers.dev` 域名，有亚洲节点）：
 
 ```bash
-pnpm deploy          # 构建 + 部署
-pnpm preview         # 在 Workers 运行时本地预览
+pnpm run cf:deploy    # 构建 + 部署
+pnpm run cf:preview   # 在 Workers 运行时本地预览
 ```
+
+注意用 `pnpm run`：`pnpm deploy` 会被 pnpm 的内置 monorepo 部署命令拦截，故另提供 `cf:` 前缀别名。
+
+首次部署后需在 Cloudflare 控制台注册 workers.dev 子域，否则域名无法访问（Workers & Pages → 首次进入时设置）。
 
 经 [OpenNext](https://opennext.js.org/cloudflare) 适配，`nodejs_compat` 标志下 Route Handler 与 OpenAI SDK 正常工作，SSE 流式已实测通过。注意 wrangler 要求 Node ≥ 22（项目本身 Node 20 即可）。
 
