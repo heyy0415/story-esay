@@ -20,19 +20,16 @@ interface Props {
 }
 
 /**
- * 让进度在真实节点之间缓慢爬升。
+ * 在真实进度节点之上叠加缓慢爬升。
  *
- * 出图阶段是一次约 45 秒的等待，期间没有任何可上报的中间事件，
- * 进度条若静止不动会被误认为卡死。这里在真实进度之上叠加缓慢爬升，
- * 并在接近下一节点前收敛，既避免假死观感也不会超过真实进度太多。
+ * 开局各阶段之间（尤其出图约 45 秒）没有中间事件可上报，进度条静止会被误认为卡死。
+ * 爬升量封顶 18%，为下一个真实节点留出落点。
  */
-function useCreepingProgress(target: number): number {
-  /** 自上一个真实节点以来累计爬升的量 */
+function useNodeCreep(target: number): number {
   const [creep, setCreep] = useState(0);
 
   useEffect(() => {
     const timer = setInterval(() => {
-      // 最多爬 18%，留出真实事件的落点
       setCreep((c) => Math.min(c + 1, 18));
     }, 1400);
 
@@ -51,7 +48,7 @@ function useCreepingProgress(target: number): number {
  * 所以这段等待较长（约一分钟），必须给出真实进度而非无限转圈。
  */
 function BuildingProgress({ progress, stage }: { progress: number; stage: string }) {
-  const display = useCreepingProgress(progress);
+  const display = useNodeCreep(progress);
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-8 px-6 py-16">
