@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AIConfigInputSchema } from "@/lib/config/schema";
 
 /** 故事开局：由用户一句话创意生成的世界设定与初始状态 */
 export const StorySetupSchema = z.object({
@@ -43,6 +44,8 @@ export const HistoryEntrySchema = z.object({
 export const IllustrateRequestSchema = z.object({
   genre: z.string().min(1).max(20),
   narrative: z.string().min(1).max(2000),
+  /** 模型配置由前端携带，服务端不持有密钥 */
+  config: AIConfigInputSchema,
 });
 
 /** 客户端持有并回传服务端的完整游戏状态（服务端无状态） */
@@ -60,11 +63,15 @@ export type GameState = z.infer<typeof GameStateSchema>;
 export const TurnRequestSchema = z.object({
   state: GameStateSchema,
   action: z.string().min(1).max(200),
+  /** 模型配置由前端携带，服务端不持有密钥 */
+  config: AIConfigInputSchema,
 });
 export type TurnRequest = z.infer<typeof TurnRequestSchema>;
 
 export const SetupRequestSchema = z.object({
   idea: z.string().min(2).max(300),
+  /** 模型配置由前端携带，服务端不持有密钥 */
+  config: AIConfigInputSchema,
 });
 
 /** SSE 事件协议：text 为叙事增量，meta 为回合结束后的结构化数据，error 为失败 */

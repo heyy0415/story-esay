@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { GameState, StorySetup, TurnMeta } from "./schema";
-import { requestSetup, requestIllustration } from "./client";
+import { requestSetup, requestIllustration, NeedConfigError } from "./client";
 import { warmImage } from "./image-warm";
 import { MAX_TURNS } from "./prompts";
 import {
@@ -59,6 +59,8 @@ interface GameUI {
   setupProgress: number;
   /** 开局当前阶段的文案 */
   setupStage: string;
+  /** 因未配置模型而中断，UI 据此弹出配置表单 */
+  needConfig: boolean;
 }
 
 const INITIAL_UI: GameUI = {
@@ -74,6 +76,7 @@ const INITIAL_UI: GameUI = {
   prefetch: {},
   setupProgress: 0,
   setupStage: "",
+  needConfig: false,
 };
 
 /** 存档只保留稳定的游戏进度，预取缓存与瞬时 UI 状态不落盘 */
@@ -229,7 +232,8 @@ export function useGame() {
           phase: "playing",
           streamingText: "",
           choices: u.choices.length ? u.choices : baseState.setup.choices,
-          error: e instanceof Error ? e.message : "生成失败",
+          error: e instanceof NeedConfigError ? null : e instanceof Error ? e.message : "生成失败",
+          needConfig: e instanceof NeedConfigError,
           illustratingIndex: null,
           awaitingChars: 0,
         }));
@@ -294,6 +298,11 @@ export function useGame() {
         }));
       } catch (e) {
         if (controller.signal.aborted) return;
+        // 未配置模型不是错误，交给 UI 引导用户填写而非显示红色报错
+        if (e instanceof NeedConfigError) {
+          setUi({ ...INITIAL_UI, needConfig: true });
+          return;
+        }
         setUi({ ...INITIAL_UI, error: e instanceof Error ? e.message : "创建失败" });
       }
     },
@@ -345,7 +354,9 @@ export function useGame() {
     setUi(INITIAL_UI);
   }, []);
 
-  return { ...ui, startGame, act, reset };
+  const clearNeedConfig = useCallback(() => setUi((u) => ({ ...u, needConfig: false })), []);
+
+  return { ...ui, startGame, act, reset, clearNeedConfig };
 }
 
 function applyStatChanges(stats: Record<string, number>, changes: Record<string, number>): Record<string, number> {

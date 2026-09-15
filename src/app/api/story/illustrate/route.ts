@@ -25,9 +25,10 @@ export async function POST(req: Request) {
   const body = IllustrateRequestSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) return NextResponse.json({ imageUrl: null });
 
+  // 插图是非关键路径：配置缺失直接降级为无图，不打扰用户
   let ai: ReturnType<typeof getAI>;
   try {
-    ai = getAI();
+    ai = getAI(body.data.config);
   } catch {
     return NextResponse.json({ imageUrl: null });
   }

@@ -1,4 +1,16 @@
 import type { GameState, StorySetup, StreamEvent, TurnMeta } from "./schema";
+import { loadConfig } from "@/lib/config/storage";
+
+/** 服务端用此状态码表示尚未配置模型 */
+const NEED_CONFIG_STATUS = 428;
+
+/** 配置缺失时抛出，由 UI 捕获并弹出配置表单 */
+export class NeedConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NeedConfigError";
+  }
+}
 
 /**
  * 安全解析响应体。服务端崩溃时 body 可能为空或是 HTML 错误页，
@@ -16,6 +28,13 @@ async function readError(res: Response): Promise<string> {
   }
 }
 
+/** 统一抛错：配置缺失抛 NeedConfigError 以便 UI 弹出表单，其余抛普通 Error */
+async function throwForStatus(res: Response): Promise<never> {
+  const message = await readError(res);
+  if (res.status === NEED_CONFIG_STATUS) throw new NeedConfigError(message);
+  throw new Error(message);
+}
+
 /**
  * 请求故事开局
  * @throws 服务端返回非 2xx 或响应体不合法时抛出携带用户可读信息的 Error
@@ -24,10 +43,10 @@ export async function requestSetup(idea: string): Promise<StorySetup> {
   const res = await fetch("/api/story/setup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ idea }),
+    body: JSON.stringify({ idea, config: loadConfig() ?? undefined }),
   });
 
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) await throwForStatus(res);
 
   const text = await res.text();
   try {
@@ -46,7 +65,7 @@ export async function requestIllustration(genre: string, narrative: string, sign
     const res = await fetch("/api/story/illustrate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ genre, narrative }),
+      body: JSON.stringify({ genre, narrative, config: loadConfig() ?? undefined }),
       signal,
     });
     if (!res.ok) return null;
@@ -71,11 +90,11 @@ export async function requestTurn(state: GameState, action: string, cb: TurnCall
   const res = await fetch("/api/story/turn", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ state, action }),
+    body: JSON.stringify({ state, action, config: loadConfig() ?? undefined }),
     signal,
   });
 
-  if (!res.ok) throw new Error(await readError(res));
+  if (!res.ok) await throwForStatus(res);
   if (!res.body) throw new Error("服务端未返回数据流");
 
   const reader = res.body.getReader();

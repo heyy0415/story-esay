@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAI } from "@/lib/ai/provider";
+import { getAI, MissingConfigError } from "@/lib/ai/provider";
 import { SetupRequestSchema, StorySetupSchema } from "@/lib/story/schema";
 import { SETUP_SYSTEM_PROMPT } from "@/lib/story/prompts";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
@@ -27,17 +27,23 @@ export async function POST(req: Request) {
 
   const body = SetupRequestSchema.safeParse(await req.json().catch(() => null));
   if (!body.success) {
+    // config 校验失败说明配置有问题而非创意有问题，引导去改配置
+    const isConfigIssue = body.error.issues.some((i) => i.path[0] === "config");
+    if (isConfigIssue) {
+      return NextResponse.json({ error: "模型配置不完整，请检查 API Key 与模型名", needConfig: true }, { status: 428 });
+    }
     return NextResponse.json({ error: "创意描述需在 2-300 字之间" }, { status: 400 });
   }
 
-  // 配置缺失属于部署问题而非用户输入问题，单独返回 500 并带上原因
+  // 配置缺失时返回 428，前端据此弹出配置表单
   let ai: ReturnType<typeof getAI>;
   try {
-    ai = getAI();
+    ai = getAI(body.data.config);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "AI 配置错误";
-    console.error("[setup] 配置错误:", message);
-    return NextResponse.json({ error: `服务端配置错误：${message}` }, { status: 500 });
+    if (e instanceof MissingConfigError) {
+      return NextResponse.json({ error: e.message, needConfig: true }, { status: 428 });
+    }
+    throw e;
   }
   const { client, model } = ai;
 
