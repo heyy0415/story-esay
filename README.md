@@ -14,7 +14,7 @@
 | 模型名 | 是 | 如 `gpt-4o-mini` / `deepseek-chat` |
 | Base URL | 否 | 留空走 OpenAI 官方；中转网关注意是否需要 `/v1` 后缀 |
 
-配置保存在浏览器 localStorage，随每次请求发往 Route Handler 代理模型调用。**服务端不持有、不留存任何密钥**，因此部署时无需配置模型相关环境变量，公开演示也不会消耗站点方的额度。
+配置保存在浏览器 localStorage，随每次请求发往 Route Handler 代理模型调用。**服务不部留存任何密钥**，因此部署时无需配置模型相关环境变量，公开演示也不会消耗站点方的额度。
 
 插图走免费的 Pollinations，不需要 key。
 
