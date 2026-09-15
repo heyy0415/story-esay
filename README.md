@@ -67,14 +67,6 @@ pnpm dev
 
 打开 http://localhost:3000 ，在右上角填入模型配置即可。
 
-## 部署
-
-部署在 Vercel，在线体验：https://story-esay.vercel.app/
-
-由于采用 BYOK，**无需配置任何环境变量**；服务端无状态、不依赖数据库，在 Vercel 导入本仓库即可部署，免费版额度足够。
-
-各 Route Handler 的 `maxDuration` 设为 60 秒——实测开局约 22 秒、回合推进约 9 秒、插图 prompt 约 8 秒，均有充足余量；挂起的请求早些中断优于长时间占用。
-
 ## 目录结构
 
 ```
