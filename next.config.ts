@@ -5,3 +5,6 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// 让 next dev 也能使用 Cloudflare 绑定（由 OpenNext 适配器要求）
+import("@opennextjs/cloudflare").then((m) => m.initOpenNextCloudflareForDev());

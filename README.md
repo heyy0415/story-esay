@@ -63,6 +63,23 @@ pnpm dev
 
 打开 http://localhost:3000 ，在右上角填入模型配置即可。
 
+## 部署
+
+配置了 BYOK 后，部署无需任何环境变量。
+
+**Cloudflare Workers**（推荐，送永久 `*.workers.dev` 域名，有亚洲节点）：
+
+```bash
+pnpm deploy          # 构建 + 部署
+pnpm preview         # 在 Workers 运行时本地预览
+```
+
+经 [OpenNext](https://opennext.js.org/cloudflare) 适配，`nodejs_compat` 标志下 Route Handler 与 OpenAI SDK 正常工作，SSE 流式已实测通过。注意 wrangler 要求 Node ≥ 22（项目本身 Node 20 即可）。
+
+未启用 ISR 缓存与 `next/image`，因此 [wrangler.jsonc](wrangler.jsonc) 省去了 R2 桶、自引用服务与 images 绑定——页面为静态或全动态，插图走第三方 URL 直出。
+
+**其他平台**：Vercel 导入即部署（`*.vercel.app` 永久域名）。EdgeOne Pages 配置见 [edgeone.json](edgeone.json)，但其默认域名仅提供 3 小时限时预览，长期可用需绑定已备案的自定义域名。
+
 ## 目录结构
 
 ```
