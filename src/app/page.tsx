@@ -27,6 +27,7 @@ export default function Home() {
         endingType={game.endingType}
         error={game.error}
         illustratingIndex={game.illustratingIndex}
+        awaitingChars={game.awaitingChars}
         onAct={game.act}
         onReset={game.reset}
       />

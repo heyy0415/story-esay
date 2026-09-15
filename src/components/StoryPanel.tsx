@@ -8,23 +8,51 @@ interface Props {
   state: GameState;
   streamingText: string;
   choices: string[];
-  phase: "playing" | "streaming" | "ended";
+  phase: "playing" | "awaiting" | "streaming" | "ended";
   endingType: TurnMeta["endingType"];
   error: string | null;
   /** 正在生成插画的回合索引，-1 为开场 */
   illustratingIndex: number | null;
+  /** awaiting 阶段已生成字数，用于进度估算 */
+  awaitingChars: number;
   onAct: (action: string) => void;
   onReset: () => void;
 }
 
-const ENDING_LABEL: Record<NonNullable<TurnMeta["endingType"]>, { text: string; cls: string }> = {
-  good: { text: "圆满结局", cls: "text-emerald-300 border-emerald-500/40 bg-emerald-950/40" },
-  bad: { text: "悲剧结局", cls: "text-rose-300 border-rose-500/40 bg-rose-950/40" },
-  neutral: { text: "故事落幕", cls: "text-amber-200 border-amber-500/40 bg-amber-950/40" },
+/** 叙事目标字数（prompt 要求 150-250 字），用于把字数换算成进度百分比 */
+const TARGET_NARRATIVE_CHARS = 200;
+
+const ENDING_LABEL: Record<
+  NonNullable<TurnMeta["endingType"]>,
+  { text: string; cls: string }
+> = {
+  good: {
+    text: "圆满结局",
+    cls: "text-emerald-300 border-emerald-500/40 bg-emerald-950/40",
+  },
+  bad: {
+    text: "悲剧结局",
+    cls: "text-rose-300 border-rose-500/40 bg-rose-950/40",
+  },
+  neutral: {
+    text: "故事落幕",
+    cls: "text-amber-200 border-amber-500/40 bg-amber-950/40",
+  },
 };
 
 /** 主区域：叙事流、选项与自由输入 */
-export function StoryPanel({ state, streamingText, choices, phase, endingType, error, illustratingIndex, onAct, onReset }: Props) {
+export function StoryPanel({
+  state,
+  streamingText,
+  choices,
+  phase,
+  endingType,
+  error,
+  illustratingIndex,
+  awaitingChars,
+  onAct,
+  onReset,
+}: Props) {
   const [custom, setCustom] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -33,34 +61,49 @@ export function StoryPanel({ state, streamingText, choices, phase, endingType, e
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [state.history.length, streamingText, choices.length]);
 
-  const busy = phase === "streaming";
+  // awaiting 期间也必须禁用交互，否则会并发提交多个回合
+  const busy = phase === "streaming" || phase === "awaiting";
 
   return (
     <section className="flex min-h-0 flex-1 flex-col">
-      <div className="flex-1 space-y-8 overflow-y-auto pr-2">
+      {/* scrollbar-width 只接受关键字，不接受长度值；细滚动条用 thin */}
+      <div className="flex-1 space-y-8 overflow-y-auto pr-2" style={{ scrollbarWidth: "thin" }}>
         <div className="space-y-4">
-          <Illustration imageUrl={state.openingImageUrl} loading={illustratingIndex === -1} />
+          <Illustration
+            imageUrl={state.openingImageUrl}
+            loading={illustratingIndex === -1}
+          />
           <Narrative text={state.setup.opening} />
         </div>
 
         {state.history.map((h, i) => (
           <div key={i} className="space-y-4">
             <ActionBubble text={h.action} />
-            <Illustration imageUrl={h.imageUrl} loading={illustratingIndex === i} />
+            <Illustration
+              imageUrl={h.imageUrl}
+              loading={illustratingIndex === i}
+            />
             <Narrative text={h.narrative} />
           </div>
         ))}
 
-        {busy && (
+        {phase === "streaming" && (
           <div className="space-y-4">
             <Narrative text={streamingText} cursor />
           </div>
         )}
 
+        {/* 预取尚未完成时只报进度，不显示已生成正文——避免剧透即将呈现的内容 */}
+        {phase === "awaiting" && <AwaitingProgress chars={awaitingChars} />}
+
         {phase === "ended" && endingType && (
-          <div className={`rounded-2xl border px-6 py-5 text-center ${ENDING_LABEL[endingType].cls}`}>
+          <div
+            className={`rounded-2xl border px-6 py-5 text-center ${ENDING_LABEL[endingType].cls}`}
+          >
             <p className="text-xl font-bold">{ENDING_LABEL[endingType].text}</p>
-            <p className="mt-1 text-sm opacity-80">你在第 {state.turnCount} 回合迎来了这个结局</p>
+            <p className="mt-1 text-sm opacity-80">
+              你在第 {state.turnCount} 回合迎来了这个结局
+            </p>
             <button
               type="button"
               onClick={onReset}
@@ -124,11 +167,33 @@ export function StoryPanel({ state, streamingText, choices, phase, endingType, e
   );
 }
 
+/** 等待预取分支完成时的进度条。封顶 95%，留给 meta 到达后的收尾 */
+function AwaitingProgress({ chars }: { chars: number }) {
+  const percent = Math.min(
+    95,
+    Math.round((chars / TARGET_NARRATIVE_CHARS) * 100),
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="h-1.5 overflow-hidden rounded-full bg-zinc-800">
+        <div
+          className="h-full rounded-full bg-amber-400 transition-all duration-300"
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <p className="text-sm text-zinc-500">剧情生成中 {percent}%</p>
+    </div>
+  );
+}
+
 function Narrative({ text, cursor }: { text: string; cursor?: boolean }) {
   return (
     <p className="whitespace-pre-wrap text-[17px] leading-8 text-zinc-200">
       {text}
-      {cursor && <span className="ml-0.5 inline-block h-5 w-2 animate-pulse bg-amber-400 align-middle" />}
+      {cursor && (
+        <span className="ml-0.5 inline-block h-5 w-2 animate-pulse bg-amber-400 align-middle" />
+      )}
     </p>
   );
 }
@@ -136,7 +201,9 @@ function Narrative({ text, cursor }: { text: string; cursor?: boolean }) {
 function ActionBubble({ text }: { text: string }) {
   return (
     <div className="flex justify-end">
-      <span className="rounded-2xl rounded-tr-sm bg-amber-400/15 px-4 py-2 text-amber-200">→ {text}</span>
+      <span className="rounded-2xl rounded-tr-sm bg-amber-400/15 px-4 py-2 text-amber-200">
+        → {text}
+      </span>
     </div>
   );
 }

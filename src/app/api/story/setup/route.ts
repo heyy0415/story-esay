@@ -20,7 +20,7 @@ function stripCodeFence(text: string): string {
  * 根据一句话创意生成故事开局。非流式，因为客户端需要完整结构才能渲染。
  */
 export async function POST(req: Request) {
-  const limit = checkRateLimit(getClientKey(req));
+  const limit = checkRateLimit(getClientKey(req), "setup");
   if (!limit.allowed) {
     return NextResponse.json({ error: `请求过于频繁，请 ${limit.retryAfterSec} 秒后再试` }, { status: 429 });
   }
