@@ -2,8 +2,6 @@
 
 输入一句话创意，AI 生成一个可玩的文字互动故事：世界设定、角色属性、分支剧情与写实场景插图全部由模型实时生成，每个选择都会改变结局。
 
-**在线体验：https://story-esay.vercel.app/**
-
 ## 使用说明
 
 本站不提供模型额度，需自带 API Key（BYOK）。首次点击「开始冒险」时会引导填写配置，也可随时点右上角按钮修改：
@@ -69,9 +67,23 @@ pnpm dev
 
 ## 部署
 
-部署在 Vercel：https://story-esay.vercel.app/
+部署到 [EdgeOne Pages](https://pages.edgeone.ai)，配置见 [edgeone.json](edgeone.json)。
 
-由于采用 BYOK，**无需配置任何环境变量**，在 Vercel 导入本仓库即可。服务端无状态、不依赖数据库，免费版额度足够。
+由于采用 BYOK，**无需配置任何环境变量**；服务端无状态、不依赖数据库，导入本仓库即可部署。
+
+```bash
+edgeone login
+edgeone makers link      # 关联平台项目
+edgeone makers deploy
+```
+
+也可在控制台直接导入 Git 仓库，平台会自动识别 Next.js 并读取 `edgeone.json`。
+
+两处配置说明：
+- `cloudFunctions.maxDuration` 取平台上限 120 秒（Vercel 为 60 秒），为插图生成留出余量；各 Route Handler 自身仍设 60 秒，避免挂起请求长时间占用
+- 未设 `outputDirectory`——`.next` 无顶层 HTML，并非可直接托管的静态目录，指定它会让平台误按静态站处理
+
+注意：EdgeOne 的默认域名出于内容合规要求仅提供 3 小时限时预览，长期可用需绑定已完成 ICP 备案的自定义域名。
 
 ## 目录结构
 
