@@ -61,6 +61,8 @@ interface GameUI {
   setupStage: string;
   /** 因未配置模型而中断，UI 据此弹出配置表单 */
   needConfig: boolean;
+  /** 配置相关的具体原因，展示在配置表单中引导用户修正 */
+  configError: string | null;
 }
 
 const INITIAL_UI: GameUI = {
@@ -77,6 +79,7 @@ const INITIAL_UI: GameUI = {
   setupProgress: 0,
   setupStage: "",
   needConfig: false,
+  configError: null,
 };
 
 /** 存档只保留稳定的游戏进度，预取缓存与瞬时 UI 状态不落盘 */
@@ -234,6 +237,7 @@ export function useGame() {
           choices: u.choices.length ? u.choices : baseState.setup.choices,
           error: e instanceof NeedConfigError ? null : e instanceof Error ? e.message : "生成失败",
           needConfig: e instanceof NeedConfigError,
+          configError: e instanceof NeedConfigError ? e.message : null,
           illustratingIndex: null,
           awaitingChars: 0,
         }));
@@ -300,7 +304,7 @@ export function useGame() {
         if (controller.signal.aborted) return;
         // 未配置模型不是错误，交给 UI 引导用户填写而非显示红色报错
         if (e instanceof NeedConfigError) {
-          setUi({ ...INITIAL_UI, needConfig: true });
+          setUi({ ...INITIAL_UI, needConfig: true, configError: e.message });
           return;
         }
         setUi({ ...INITIAL_UI, error: e instanceof Error ? e.message : "创建失败" });
@@ -354,7 +358,7 @@ export function useGame() {
     setUi(INITIAL_UI);
   }, []);
 
-  const clearNeedConfig = useCallback(() => setUi((u) => ({ ...u, needConfig: false })), []);
+  const clearNeedConfig = useCallback(() => setUi((u) => ({ ...u, needConfig: false, configError: null })), []);
 
   return { ...ui, startGame, act, reset, clearNeedConfig };
 }

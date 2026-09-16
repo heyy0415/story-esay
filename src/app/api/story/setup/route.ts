@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAI, MissingConfigError } from "@/lib/ai/provider";
+import { classifyAIError } from "@/lib/ai/errors";
 import { SetupRequestSchema, StorySetupSchema } from "@/lib/story/schema";
 import { SETUP_SYSTEM_PROMPT } from "@/lib/story/prompts";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
@@ -47,7 +48,10 @@ export async function POST(req: Request) {
   }
   const { client, model } = ai;
 
-  let lastError = "";
+  /** 上游抛出的异常。保留原对象而非字符串，便于按状态码归因 */
+  let lastError: unknown = null;
+  /** 模型返回了内容但不符合 schema——这才是"换个描述可能有用"的情况 */
+  let lastSchemaIssue = "";
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     try {
@@ -64,12 +68,20 @@ export async function POST(req: Request) {
       const parsed = StorySetupSchema.safeParse(JSON.parse(raw));
       if (parsed.success) return NextResponse.json(parsed.data);
 
-      lastError = parsed.error.issues.map((i) => i.message).join("; ");
+      lastSchemaIssue = parsed.error.issues.map((i) => i.message).join("; ");
+      lastError = null;
     } catch (e) {
-      lastError = e instanceof Error ? e.message : String(e);
+      lastError = e;
     }
   }
 
-  console.error("[setup] 生成失败:", lastError);
-  return NextResponse.json({ error: "故事生成失败，请换个描述重试" }, { status: 502 });
+  // 调用成功但输出不合规，才提示换描述；其余按上游错误归因
+  if (!lastError) {
+    console.error("[setup] 模型输出不符合 schema:", lastSchemaIssue);
+    return NextResponse.json({ error: "模型返回的内容不完整，请换个描述重试" }, { status: 502 });
+  }
+
+  const { message, needConfig } = classifyAIError(lastError, "故事生成失败，请稍后重试");
+  console.error("[setup] 生成失败:", message, "|", lastError);
+  return NextResponse.json({ error: message, needConfig }, { status: needConfig ? 428 : 502 });
 }

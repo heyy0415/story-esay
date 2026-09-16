@@ -7,19 +7,21 @@ import { CONFIG_PRESETS, clearConfig, loadConfig, saveConfig } from "@/lib/confi
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** 上游返回的配置相关错误，用于引导用户修正具体哪一项 */
+  reason?: string | null;
 }
 
 /**
  * 模型配置表单。配置存于浏览器 localStorage 并随每次请求发往服务端，
  * 服务端不持有任何密钥——公开演示时每位体验者使用自己的额度。
  */
-export function ConfigDialog({ open, onClose }: Props) {
+export function ConfigDialog({ open, onClose, reason }: Props) {
   // 关闭时不挂载：重新打开即得到全新实例，表单自然回填最新配置，无需用 effect 重置
   if (!open) return null;
-  return <ConfigForm onClose={onClose} />;
+  return <ConfigForm onClose={onClose} reason={reason} />;
 }
 
-function ConfigForm({ onClose }: Omit<Props, "open">) {
+function ConfigForm({ onClose, reason }: Omit<Props, "open">) {
   // 初始值直接取已存配置，避免用户重复输入
   const [form, setForm] = useState<AIConfig>(() => loadConfig() ?? { apiKey: "", model: "", baseUrl: "" });
   const [errors, setErrors] = useState<Partial<Record<keyof AIConfig, string>>>({});
@@ -68,6 +70,12 @@ function ConfigForm({ onClose }: Omit<Props, "open">) {
           本站不提供模型额度，请填写你自己的 API Key。配置仅保存在当前浏览器，
           <span className="text-zinc-300">不会上传或留存于服务器</span>。
         </p>
+
+        {reason && (
+          <p className="mt-4 rounded-xl border border-amber-500/40 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+            {reason}
+          </p>
+        )}
 
         <div className="mt-5 flex flex-col gap-4">
           <Field label="API Key" error={errors.apiKey} required>

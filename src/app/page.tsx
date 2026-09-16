@@ -24,7 +24,7 @@ export default function Home() {
   const overlay = (
     <>
       <ConfigButton onClick={() => setManualOpen(true)} />
-      <ConfigDialog open={configOpen} onClose={closeConfig} />
+      <ConfigDialog open={configOpen} onClose={closeConfig} reason={game.configError} />
     </>
   );
 

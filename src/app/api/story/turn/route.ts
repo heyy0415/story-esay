@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAI, MissingConfigError } from "@/lib/ai/provider";
+import { classifyAIError } from "@/lib/ai/errors";
 import { TurnRequestSchema, TurnMetaSchema, type StreamEvent, type TurnMeta } from "@/lib/story/schema";
 import { buildTurnSystemPrompt, buildHistoryMessages, META_DELIMITER, MAX_TURNS } from "@/lib/story/prompts";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
@@ -151,8 +152,9 @@ export async function POST(req: Request) {
       } catch (e) {
         // 客户端断开是预取分支被取消时的正常路径，不记录也不推送错误
         if (!closed && !req.signal.aborted) {
-          console.error("[turn] 生成失败:", e instanceof Error ? e.message : e);
-          send({ type: "error", message: "剧情生成失败，请重试" });
+          const { message } = classifyAIError(e, "剧情生成失败，请重试");
+          console.error("[turn] 生成失败:", message, "|", e);
+          send({ type: "error", message });
         }
       } finally {
         if (!closed) {
