@@ -108,8 +108,9 @@ export function classifyAIError(e: unknown, fallback: string): ClassifiedError {
     return { message: "无法连接到接口地址，请检查 Base URL 是否可访问", needConfig: true };
   }
 
-  if (/timeout|aborted/i.test(raw)) {
-    return { message: "上游响应超时，请稍后重试", needConfig: false };
+  // SDK 超时的措辞有 "Request timed out."、"timeout"、"aborted" 等多种
+  if (/timed?\s*out|timeout|aborted/i.test(raw)) {
+    return { message: "上游响应超时（可能是该模型账号池繁忙），请稍后重试或换一个模型", needConfig: false };
   }
 
   return { message: fallback, needConfig: false };

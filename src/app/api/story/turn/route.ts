@@ -6,7 +6,7 @@ import { buildTurnSystemPrompt, buildHistoryMessages, META_DELIMITER, MAX_TURNS 
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const encoder = new TextEncoder();
 

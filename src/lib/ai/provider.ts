@@ -1,6 +1,12 @@
 import OpenAI from "openai";
 import type { AIConfig } from "@/lib/config/schema";
 
+/**
+ * 上游调用超时上限。取值需明显小于各路由的 maxDuration，
+ * 使超时由 SDK 抛出可归因的错误，而非撞上平台的 504 通用页。
+ */
+const UPSTREAM_TIMEOUT_MS = 90_000;
+
 /** 缺少配置时抛出，供路由转换为引导用户去配置的响应 */
 export class MissingConfigError extends Error {
   constructor() {
@@ -26,6 +32,11 @@ export function getAI(config: AIConfig | undefined): { client: OpenAI; model: st
     client: new OpenAI({
       apiKey: config.apiKey,
       baseURL: config.baseUrl || undefined,
+      // 主动超时，早于平台的函数超时触发：否则请求挂满时长后只会得到
+      // 平台的 504 通用页，用户看不到任何可操作信息
+      timeout: UPSTREAM_TIMEOUT_MS,
+      // SDK 默认会重试，叠加超时后耗时翻倍；这里交由各路由自行决定是否重试
+      maxRetries: 0,
     }),
     model: config.model,
   };

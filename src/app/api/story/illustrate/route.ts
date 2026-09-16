@@ -6,7 +6,7 @@ import { buildImageUrl, deriveSeed } from "@/lib/story/image";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 /** 绘画 prompt 的合理长度上限，超长说明模型没遵守指令 */
 const MAX_PROMPT_LENGTH = 600;

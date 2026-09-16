@@ -6,7 +6,7 @@ import { SETUP_SYSTEM_PROMPT } from "@/lib/story/prompts";
 import { checkRateLimit, getClientKey } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /** 模型偶发输出非法 JSON 时的重试次数 */
 const MAX_ATTEMPTS = 2;
@@ -71,7 +71,10 @@ export async function POST(req: Request) {
       lastSchemaIssue = parsed.error.issues.map((i) => i.message).join("; ");
       lastError = null;
     } catch (e) {
+      // 重试只针对"模型输出不合规"这类偶发问题。调用本身失败（超时、
+      // 鉴权、地址错误）重试无益，只会让用户多等一个超时周期，故立即中断。
       lastError = e;
+      break;
     }
   }
 
