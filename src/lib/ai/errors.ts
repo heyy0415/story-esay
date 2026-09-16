@@ -26,6 +26,42 @@ function getMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
+/** 摘要长度上限，避免把上游的长堆栈整段抛给用户 */
+const DETAIL_MAX_LENGTH = 120;
+
+/**
+ * 从上游错误文本中提取可读摘要。
+ * SDK 的 message 通常形如 `500 {"error":{"message":"..."}}`，优先取内层 message。
+ */
+function extractUpstreamDetail(raw: string): string {
+  const jsonStart = raw.indexOf("{");
+  if (jsonStart !== -1) {
+    try {
+      const parsed: unknown = JSON.parse(raw.slice(jsonStart));
+      const message = findMessageField(parsed);
+      if (message) return message.slice(0, DETAIL_MAX_LENGTH);
+    } catch {
+      // 非 JSON，退回下方的纯文本处理
+    }
+  }
+
+  // 去掉开头重复的状态码，只留描述
+  const text = raw.replace(/^\d{3}\s*/, "").trim();
+  return text.slice(0, DETAIL_MAX_LENGTH);
+}
+
+/** 在嵌套对象中查找 message 字段，兼容 {error:{message}} 与 {message} 两种形状 */
+function findMessageField(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.message === "string" && obj.message) return obj.message;
+  if (typeof obj.error === "string" && obj.error) return obj.error;
+  if (obj.error) return findMessageField(obj.error);
+
+  return null;
+}
+
 /**
  * 将上游异常翻译为面向用户的提示。
  * @param fallback 无法归因时的兜底提示，由调用方按场景提供
@@ -58,7 +94,13 @@ export function classifyAIError(e: unknown, fallback: string): ClassifiedError {
   }
 
   if (status !== undefined && status >= 500) {
-    return { message: `上游服务异常（${status}），请稍后重试`, needConfig: false };
+    // 中转网关常把"模型不存在""额度不足"也报成 5xx，原始信息是排查的唯一线索，
+    // 因此带上摘要而非仅提示"稍后重试"
+    const detail = extractUpstreamDetail(raw);
+    return {
+      message: detail ? `上游服务异常（${status}）：${detail}` : `上游服务异常（${status}），请稍后重试`,
+      needConfig: false,
+    };
   }
 
   // 无状态码通常是网络层问题：地址不可达、DNS 失败、超时
